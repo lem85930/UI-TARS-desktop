@@ -3,9 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ToolDefinition } from '@multimodal/mcp-agent';
+import { Tool } from '@mcp-agent/core';
 import { AbstractBrowserControlStrategy } from './base-strategy';
-import { createNavigationTools, createContentTools, createStatusTools } from '../tools';
+import {
+  createNavigationTools,
+  createContentTools,
+  createStatusTools,
+  createVisualTools,
+} from '../tools';
 
 /**
  * GUIAgentOnlyStrategy - Implements the 'gui-agent-only' browser control mode
@@ -18,10 +23,10 @@ export class GUIAgentOnlyStrategy extends AbstractBrowserControlStrategy {
   /**
    * Register GUI Agent tool and self-implemented browser tools
    */
-  async registerTools(registerToolFn: (tool: ToolDefinition) => void): Promise<string[]> {
+  async registerTools(registerToolFn: (tool: Tool) => void): Promise<string[]> {
     // Register GUI Agent tool if available
     if (this.browserGUIAgent) {
-      const guiAgentTool = this.browserGUIAgent.getToolDefinition();
+      const guiAgentTool = this.browserGUIAgent.getTool();
       registerToolFn(guiAgentTool);
       this.registeredTools.add(guiAgentTool.name);
 
@@ -35,7 +40,7 @@ export class GUIAgentOnlyStrategy extends AbstractBrowserControlStrategy {
   /**
    * Register custom browser tools implemented within the GUI Agent
    */
-  private registerCustomBrowserTools(registerToolFn: (tool: ToolDefinition) => void): void {
+  private registerCustomBrowserTools(registerToolFn: (tool: Tool) => void): void {
     if (!this.browserGUIAgent) {
       this.logger.warn('GUI Agent not initialized, cannot register custom browser tools');
       return;
@@ -45,9 +50,10 @@ export class GUIAgentOnlyStrategy extends AbstractBrowserControlStrategy {
     const navigationTools = createNavigationTools(this.logger, this.browserGUIAgent);
     const contentTools = createContentTools(this.logger, this.browserGUIAgent);
     const statusTools = createStatusTools(this.logger, this.browserGUIAgent);
+    const visualTools = createVisualTools(this.logger, this.browserGUIAgent);
 
     // Register all tools
-    [...navigationTools, ...contentTools, ...statusTools].forEach((tool) => {
+    [...navigationTools, ...contentTools, ...statusTools, ...visualTools].forEach((tool) => {
       registerToolFn(tool);
       this.registeredTools.add(tool.name);
     });

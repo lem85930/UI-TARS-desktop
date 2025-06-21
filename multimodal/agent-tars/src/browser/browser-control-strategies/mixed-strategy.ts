@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ToolDefinition } from '@multimodal/mcp-agent';
+import { Tool } from '@mcp-agent/core';
 import { AbstractBrowserControlStrategy } from './base-strategy';
-import { createContentTools } from '../tools';
+import { createContentTools, createNavigationTools, createVisualTools } from '../tools';
 
 /**
  * MixedControlStrategy - Implements the 'default' browser control mode
@@ -17,16 +17,19 @@ export class MixedControlStrategy extends AbstractBrowserControlStrategy {
   /**
    * Register both GUI Agent tools and complementary MCP Browser tools
    */
-  async registerTools(registerToolFn: (tool: ToolDefinition) => void): Promise<string[]> {
+  async registerTools(registerToolFn: (tool: Tool) => void): Promise<string[]> {
     // Register GUI Agent tool if available
     if (this.browserGUIAgent) {
-      const guiAgentTool = this.browserGUIAgent.getToolDefinition();
+      const guiAgentTool = this.browserGUIAgent.getTool();
       registerToolFn(guiAgentTool);
       this.registeredTools.add(guiAgentTool.name);
 
       // Register custom markdown extraction tool instead of MCP-provided one
       const contentTools = createContentTools(this.logger, this.browserGUIAgent);
-      contentTools.forEach((tool) => {
+      const navigationTools = createNavigationTools(this.logger, this.browserGUIAgent);
+      const visualTools = createVisualTools(this.logger, this.browserGUIAgent);
+
+      [...navigationTools, ...contentTools, ...visualTools].forEach((tool) => {
         registerToolFn(tool);
         this.registeredTools.add(tool.name);
       });
@@ -38,9 +41,9 @@ export class MixedControlStrategy extends AbstractBrowserControlStrategy {
       // Use our custom markdown tool instead
       const browserTools = [
         // Navigation tools
-        'browser_navigate',
-        'browser_go_back',
-        'browser_go_forward',
+        // 'browser_navigate',
+        // 'browser_go_back',
+        // 'browser_go_forward',
 
         // Skip `browser_get_markdown` - using custom implementation
         // 'browser_get_markdown',
@@ -58,7 +61,7 @@ export class MixedControlStrategy extends AbstractBrowserControlStrategy {
         'browser_read_links',
 
         // Visual tools
-        'browser_screenshot',
+        // 'browser_screenshot',
 
         // Tab management
         'browser_tab_list',

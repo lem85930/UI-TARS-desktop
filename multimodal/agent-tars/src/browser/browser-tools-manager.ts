@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ToolDefinition } from '@multimodal/mcp-agent';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { Tool, Client } from '@mcp-agent/core';
 import { BrowserGUIAgent } from './browser-gui-agent';
-import { ConsoleLogger } from '@multimodal/mcp-agent';
+import { ConsoleLogger } from '@mcp-agent/core';
 import { StrategyFactory } from './browser-control-strategies/strategy-factory';
 import { BrowserControlStrategy } from './browser-control-strategies/base-strategy';
 import { BrowserControlMode } from '../types';
@@ -58,7 +57,7 @@ export class BrowserToolsManager {
    * @param registerToolFn Function to register a tool with the agent
    * @returns Array of registered tool names
    */
-  async registerTools(registerToolFn: (tool: ToolDefinition) => void): Promise<string[]> {
+  async registerTools(registerToolFn: (tool: Tool) => void): Promise<string[]> {
     // Clear previously registered tools tracking
     this.registeredTools.clear();
 

@@ -1,4 +1,4 @@
-import { ToolDefinition } from '@multimodal/mcp-agent';
+import { Tool } from '@mcp-agent/core';
 import { AbstractBrowserControlStrategy } from './base-strategy';
 import { createContentTools } from '../tools';
 
@@ -12,7 +12,7 @@ export class BrowserUseOnlyStrategy extends AbstractBrowserControlStrategy {
   /**
    * Register all MCP Browser tools
    */
-  async registerTools(registerToolFn: (tool: ToolDefinition) => void): Promise<string[]> {
+  async registerTools(registerToolFn: (tool: Tool) => void): Promise<string[]> {
     if (!this.browserClient) {
       this.logger.warn('Browser client not set, cannot register browser tools');
       return [];
@@ -35,7 +35,7 @@ export class BrowserUseOnlyStrategy extends AbstractBrowserControlStrategy {
       'browser_go_forward',
 
       // Skip content extraction tools - using custom implementation
-      // 'browser_get_markdown',
+      'browser_get_markdown',
       // 'browser_get_html',
       // 'browser_get_text',
 
@@ -52,7 +52,7 @@ export class BrowserUseOnlyStrategy extends AbstractBrowserControlStrategy {
       'browser_read_links',
 
       // Visual tools
-      'browser_screenshot',
+      // 'browser_screenshot',
 
       // Tab management
       'browser_tab_list',

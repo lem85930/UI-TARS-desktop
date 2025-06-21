@@ -6,9 +6,8 @@
 import { Agent } from '../agent';
 import { ToolManager } from '../tool-manager';
 import {
-  EventStream,
-  EventType,
-  ToolDefinition,
+  AgentEventStream,
+  Tool,
   ToolCallResult,
   JSONSchema7,
   ChatCompletionMessageToolCall,
@@ -28,13 +27,13 @@ export class ToolProcessor {
   constructor(
     private agent: Agent,
     private toolManager: ToolManager,
-    private eventStream: EventStream,
+    private eventStream: AgentEventStream.Processor,
   ) {}
 
   /**
    * Get all available tools
    */
-  getTools(): ToolDefinition[] {
+  getTools(): Tool[] {
     return this.toolManager.getTools();
   }
 
@@ -90,7 +89,7 @@ export class ToolProcessor {
           }
 
           // Create tool call event
-          const toolCallEvent = this.eventStream.createEvent(EventType.TOOL_CALL, {
+          const toolCallEvent = this.eventStream.createEvent('tool_call', {
             toolCallId: toolCall.id,
             name: toolName,
             arguments: args,
@@ -118,7 +117,7 @@ export class ToolProcessor {
           }
 
           // Create tool result event
-          const toolResultEvent = this.eventStream.createEvent(EventType.TOOL_RESULT, {
+          const toolResultEvent = this.eventStream.createEvent('tool_result', {
             toolCallId: result.toolCallId,
             name: result.toolName,
             content: result.content,
@@ -160,7 +159,7 @@ export class ToolProcessor {
         }
 
         // Create tool call event
-        const toolCallEvent = this.eventStream.createEvent(EventType.TOOL_CALL, {
+        const toolCallEvent = this.eventStream.createEvent('tool_call', {
           toolCallId: toolCall.id,
           name: toolName,
           arguments: args,
@@ -178,7 +177,7 @@ export class ToolProcessor {
           this.logger.info(`[Tool] Tool execution aborted before execution: ${toolName}`);
 
           // Create abort result event
-          const abortResultEvent = this.eventStream.createEvent(EventType.TOOL_RESULT, {
+          const abortResultEvent = this.eventStream.createEvent('tool_result', {
             toolCallId: toolCall.id,
             name: toolName,
             content: `Tool execution aborted`,
@@ -217,7 +216,7 @@ export class ToolProcessor {
         }
 
         // Create tool result event
-        const toolResultEvent = this.eventStream.createEvent(EventType.TOOL_RESULT, {
+        const toolResultEvent = this.eventStream.createEvent('tool_result', {
           toolCallId: toolCall.id,
           name: toolName,
           content: result,
@@ -253,7 +252,7 @@ export class ToolProcessor {
         }
 
         // Create error result event
-        const toolResultEvent = this.eventStream.createEvent(EventType.TOOL_RESULT, {
+        const toolResultEvent = this.eventStream.createEvent('tool_result', {
           toolCallId: toolCall.id,
           name: toolName,
           content: `Error: ${error}`,
@@ -292,7 +291,7 @@ export class ToolProcessor {
    * @param tool The tool definition
    * @returns JSON schema representation of the tool
    */
-  private getToolSchema(tool?: ToolDefinition): JSONSchema7 {
+  private getToolSchema(tool?: Tool): JSONSchema7 {
     if (!tool) return { type: 'object', properties: {} };
     return tool.hasJsonSchema?.() ? (tool.schema as JSONSchema7) : zodToJsonSchema(tool.schema);
   }
