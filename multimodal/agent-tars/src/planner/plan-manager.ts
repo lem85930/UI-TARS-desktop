@@ -7,14 +7,11 @@ import {
   ResolvedModel,
   ChatCompletionMessageParam,
   ConsoleLogger,
-  EventStream,
-  EventType,
-  PlanStep,
-  ToolDefinition,
+  AgentEventStream,
   Tool,
   z,
   OpenAI,
-} from '@multimodal/mcp-agent';
+} from '@mcp-agent/core';
 import { AgentTARSPlannerOptions } from '../types';
 import type { AgentTARS } from '../agent-tars';
 import { DeepResearchGenerator } from './deep-research';
@@ -59,7 +56,7 @@ IMPORTANT CONSTRAINTS:
  * as well as registering necessary tools for plan management.
  */
 export class PlanManager {
-  private currentPlan: PlanStep[] = [];
+  private currentPlan: AgentEventStream.PlanStep[] = [];
   private taskCompleted = false;
   private finalAnswerCalled = false;
   private maxSteps: number;
@@ -76,7 +73,7 @@ export class PlanManager {
    */
   constructor(
     private logger: ConsoleLogger,
-    private eventStream: EventStream,
+    private eventStream: AgentEventStream.Processor,
     private agent: AgentTARS,
     options: AgentTARSPlannerOptions = {},
   ) {
@@ -111,7 +108,7 @@ export class PlanManager {
    *
    * @returns Array of tool definitions to register
    */
-  getTools(): ToolDefinition[] {
+  getTools(): Tool[] {
     return [
       new Tool({
         id: 'final_answer',
@@ -158,7 +155,7 @@ export class PlanManager {
               const messageId = `final-answer-${Date.now()}`;
 
               // Create the final answer event
-              const finalAnswerEvent = this.eventStream.createEvent(EventType.FINAL_ANSWER, {
+              const finalAnswerEvent = this.eventStream.createEvent('final_answer', {
                 content: "I've completed the task. Here's a summary of what I found:",
                 isDeepResearch: false,
                 title: title || 'Answer',
@@ -221,7 +218,7 @@ export class PlanManager {
   /**
    * Gets the current plan steps
    */
-  getCurrentPlan(): PlanStep[] {
+  getCurrentPlan(): AgentEventStream.PlanStep[] {
     return [...this.currentPlan];
   }
 
@@ -240,7 +237,7 @@ export class PlanManager {
     sessionId: string,
   ): Promise<void> {
     // Create plan start event
-    const startEvent = this.eventStream.createEvent(EventType.PLAN_START, {
+    const startEvent = this.eventStream.createEvent('plan_start', {
       sessionId,
     });
     this.eventStream.sendEvent(startEvent);
@@ -248,7 +245,7 @@ export class PlanManager {
     try {
       // Request the LLM to create an initial plan with steps
       const response = await llmClient.chat.completions.create({
-        model: resolvedModel.model,
+        model: resolvedModel.id,
         response_format: { type: 'json_object' },
         messages: [
           ...messages,
@@ -274,7 +271,7 @@ export class PlanManager {
       // Parse the response
       const content = response.choices[0]?.message?.content || '{"steps":[]}';
       let planData: {
-        steps: PlanStep[];
+        steps: AgentEventStream.PlanStep[];
         summary?: string;
         completed?: boolean;
       };
@@ -299,7 +296,7 @@ export class PlanManager {
       // Only send plan update event if there are steps
       if (this.hasPlan) {
         // Send plan update event
-        const updateEvent = this.eventStream.createEvent(EventType.PLAN_UPDATE, {
+        const updateEvent = this.eventStream.createEvent('plan_update', {
           sessionId,
           steps: this.currentPlan,
         });
@@ -339,7 +336,7 @@ export class PlanManager {
     try {
       // Request the LLM to evaluate and update the plan
       const response = await llmClient.chat.completions.create({
-        model: resolvedModel.model,
+        model: resolvedModel.id,
         response_format: { type: 'json_object' },
         messages: [
           ...messages,
@@ -373,7 +370,7 @@ export class PlanManager {
       let planData;
       try {
         planData = JSON.parse(content) as {
-          steps: PlanStep[];
+          steps: AgentEventStream.PlanStep[];
           summary?: string;
           completed?: boolean;
         };
@@ -394,7 +391,7 @@ export class PlanManager {
       this.hasPlan = this.currentPlan.length > 0;
 
       // Send plan update event
-      const updateEvent = this.eventStream.createEvent(EventType.PLAN_UPDATE, {
+      const updateEvent = this.eventStream.createEvent('plan_update', {
         sessionId,
         steps: this.currentPlan,
       });
@@ -407,7 +404,7 @@ export class PlanManager {
 
       if (this.taskCompleted) {
         // Send plan finish event
-        const finishEvent = this.eventStream.createEvent(EventType.PLAN_FINISH, {
+        const finishEvent = this.eventStream.createEvent('plan_finish', {
           sessionId,
           summary: planData.summary || 'Task completed successfully',
         });

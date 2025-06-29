@@ -4,8 +4,10 @@
  */
 
 import { CAC } from 'cac';
-import { CommonCommandOptions, addCommonOptions, processCommonOptions } from '../options';
-import { startInteractiveWebUI } from '../interactive-ui';
+import { AgentTARSCLIArguments, addCommonOptions, processCommonOptions } from './options';
+import { startHeadlessServer } from '../core/headless-server';
+import { printWelcomeLogo } from '../utils';
+import { getBootstrapCliOptions } from '../core/state';
 
 /**
  * Register the 'serve' command
@@ -14,18 +16,14 @@ export function registerServeCommand(cli: CAC): void {
   const serveCommand = cli.command('serve', 'Launch a headless Agent TARS Server.');
 
   // Use the common options function to add shared options
-  addCommonOptions(serveCommand).action(async (options: CommonCommandOptions = {}) => {
-    try {
-      const { mergedConfig, isDebug, snapshotConfig } = await processCommonOptions(options);
+  addCommonOptions(serveCommand).action(async (options: AgentTARSCLIArguments = {}) => {
+    printWelcomeLogo(getBootstrapCliOptions().version!);
 
-      await startInteractiveWebUI({
-        port: Number(options.port),
-        uiMode: 'none',
-        config: mergedConfig,
-        workspacePath: options.workspace,
+    try {
+      const { appConfig, isDebug } = await processCommonOptions(options);
+      await startHeadlessServer({
+        appConfig,
         isDebug,
-        shareProvider: options.shareProvider,
-        snapshot: snapshotConfig,
       });
     } catch (err) {
       console.error('Failed to start server:', err);

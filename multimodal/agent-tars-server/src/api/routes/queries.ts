@@ -1,5 +1,10 @@
+/*
+ * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import express from 'express';
-import { queriesController } from '../controllers/queries';
+import * as queriesController from '../controllers/queries';
 
 /**
  * Register query execution routes
@@ -7,11 +12,11 @@ import { queriesController } from '../controllers/queries';
  */
 export function registerQueryRoutes(app: express.Application): void {
   // Send a query (non-streaming)
-  app.post('/api/sessions/query', queriesController.executeQuery);
+  app.post('/api/v1/sessions/query', queriesController.executeQuery);
 
   // Send a streaming query
-  app.post('/api/sessions/query/stream', queriesController.executeStreamingQuery);
+  app.post('/api/v1/sessions/query/stream', queriesController.executeStreamingQuery);
 
   // Abort a running query
-  app.post('/api/sessions/abort', queriesController.abortQuery);
+  app.post('/api/v1/sessions/abort', queriesController.abortQuery);
 }
