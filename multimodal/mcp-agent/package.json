@@ -1,7 +1,7 @@
 {
-  "name": "@multimodal/mcp-agent",
-  "version": "0.1.7",
-  "description": "Agent TARS core.",
+  "name": "@mcp-agent/core",
+  "version": "0.2.9",
+  "description": "An event-stream driven MCP Agent Framework for building effective multimodal Agents.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -22,17 +22,21 @@
   "scripts": {
     "dev": "rslib build --watch",
     "build": "rslib build",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "agent:snapshot:genreate": "npx tsx snapshot/runner.ts generate all",
+    "agent:snapshot:test": "npx vitest snapshot/index.test.ts"
   },
   "dependencies": {
     "@multimodal/agent": "workspace:*",
-    "@agent-infra/mcp-client": "1.1.6-beta.3",
+    "@multimodal/agent-snapshot": "workspace:*",
+    "@mcp-agent/interface": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@agent-infra/mcp-client": "1.1.6-beta.3",
     "@agent-infra/logger": "0.0.2-beta.2"
   },
   "devDependencies": {
-    "@rslib/core": "0.5.4",
-    "@types/node": "^20.10.4",
+    "@rslib/core": "0.10.0",
+    "@types/node": "22.15.30",
     "typescript": "^5.5.3"
   }
 }

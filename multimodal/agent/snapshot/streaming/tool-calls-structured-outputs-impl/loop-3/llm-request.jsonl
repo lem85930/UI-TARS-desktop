@@ -1,7 +1,6 @@
 {
   "provider": "azure-openai",
   "request": {
-    "provider": "azure-openai",
     "messages": [
       {
         "role": "system",
@@ -21,7 +20,7 @@
       },
       {
         "role": "assistant",
-        "content": "Let me check the current weather in Boston for you."
+        "content": "I'll check the weather in Boston for you."
       },
       {
         "role": "user",
@@ -76,9 +75,10 @@
         }
       }
     },
+    "provider": "azure-openai",
     "thinking": {
       "type": "disabled"
     }
   },
-  "baseURL": "https://opifsqpr.fn.bytedance.net/claude_inside"
+  "baseURL": "https://opifsqpr.fn.bytedance.net/webedge_v1"
 }
