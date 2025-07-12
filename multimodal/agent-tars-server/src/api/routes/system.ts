@@ -1,5 +1,10 @@
+/*
+ * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import express from 'express';
-import { systemController } from '../controllers/system';
+import * as systemController from '../controllers/system';
 
 /**
  * Register system information routes
@@ -7,8 +12,8 @@ import { systemController } from '../controllers/system';
  */
 export function registerSystemRoutes(app: express.Application): void {
   // Health check endpoint
-  app.get('/api/health', systemController.healthCheck);
-
-  // Get model information
-  app.get('/api/model-info', systemController.getModelInfo);
+  app.get('/api/v1/health', systemController.healthCheck);
+  
+  // Version information endpoint
+  app.get('/api/v1/version', systemController.getVersion);
 }

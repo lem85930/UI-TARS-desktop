@@ -1,6 +1,13 @@
-import { WorkspacePathManager } from '../workspace-path';
+/*
+ * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { WorkspacePathManager } from './workspace-path';
 
 /**
+ * FIXME: move to `agent-tars-cli`, the server should try to avoid file-related operations and states
+ *
  * Ensures a working directory exists and returns its path
  * @param namespace workspace namespace, used when you need to isolate the execution of tasks
  * @param workspacePath optional path to workspace directory (defaults to CWD/agent-tars-workspace)
