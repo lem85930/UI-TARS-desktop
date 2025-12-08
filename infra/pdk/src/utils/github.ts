@@ -8,6 +8,7 @@
  */
 import { execa } from 'execa';
 import { logger } from './logger';
+import { shouldIncludeCommitByScope } from './commit';
 
 // Username mapping for commit authors to correct GitHub usernames
 const USERNAME_MAP: Record<string, string> = {
@@ -100,6 +101,7 @@ export async function generateReleaseNotes(
   previousTag: string | null,
   cwd: string,
   repoInfo?: { owner: string; repo: string },
+  filterScopes?: string[],
 ): Promise<string> {
   try {
     // Get commits between tags
@@ -138,6 +140,12 @@ export async function generateReleaseNotes(
       const match = commit.subject.match(/^(\w+)(\([^)]+\))?:\s*(.+)$/);
       if (match) {
         const [, type] = match;
+        
+        // Apply scope filter if provided
+        if (!shouldIncludeCommitByScope(commit.subject, filterScopes)) {
+          return; // Skip this commit
+        }
+        
         if (type in groups) {
           groups[type as keyof typeof groups].push(commit);
         } else {

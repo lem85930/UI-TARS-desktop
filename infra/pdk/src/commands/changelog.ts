@@ -17,6 +17,8 @@ import {
   generateReleaseNotes,
   getRepositoryInfo,
 } from '../utils/github';
+import { AIChangelogGenerator } from '../utils/ai-changelog';
+import type { ModelProviderName } from '@tarko/model-provider';
 
 import type { ChangelogOptions } from '../types';
 
@@ -93,13 +95,32 @@ export async function changelog(options: ChangelogOptions = {}): Promise<void> {
     `📝 Generating unified changelog from ${previousTag || 'repository start'} to ${tagName}`,
   );
 
-  // Generate GitHub-style release notes
-  const releaseNotes = await generateReleaseNotes(
-    tagName,
-    previousTag,
-    cwd,
-    repoInfo || undefined,
-  );
+  let releaseNotes: string;
+
+  if (options.useAi) {
+    const aiGenerator = new AIChangelogGenerator(cwd, tagPrefix, {
+      id: options.model || 'gpt-4o',
+      provider: options.provider as ModelProviderName,
+      // secretlint-disable-next-line @secretlint/secretlint-rule-pattern
+      apiKey: options.apiKey,
+      baseURL: options.baseURL,
+    });
+
+    releaseNotes = await aiGenerator.generate(
+      version,
+      previousTag,
+      options.filterScopes,
+    );
+  } else {
+    // Use traditional GitHub-style release notes
+    releaseNotes = await generateReleaseNotes(
+      tagName,
+      previousTag,
+      cwd,
+      repoInfo || undefined,
+      options.filterScopes,
+    );
+  }
 
   // Compose final changelog entry with version header
   const versionHeader = tagName.startsWith('v') ? tagName : `v${tagName}`;

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { execa } from 'execa';
 import { logger } from './logger';
+import { shouldIncludeCommitByScope } from './commit';
 import { AgentModel } from '@tarko/model-provider';
 
 interface CommitEntry {
@@ -51,6 +52,7 @@ export class AIChangelogGenerator {
   private async getCommitsBetweenTags(
     fromTag?: string,
     toTag = 'HEAD',
+    filterScopes?: string[],
   ): Promise<CommitEntry[]> {
     try {
       const range = fromTag ? `${fromTag}..${toTag}` : toTag;
@@ -81,7 +83,7 @@ export class AIChangelogGenerator {
         return [];
       }
 
-      return stdout
+      const commits = stdout
         .split('\n')
         .filter(Boolean)
         .map((line) => {
@@ -99,6 +101,15 @@ export class AIChangelogGenerator {
             prNumber,
           };
         });
+
+      // Apply scope filter if provided
+      if (filterScopes && filterScopes.length > 0) {
+        return commits.filter((commit) =>
+          shouldIncludeCommitByScope(commit.message, filterScopes),
+        );
+      }
+
+      return commits;
     } catch (error) {
       logger.error(`Failed to get commits: ${(error as Error).message}`);
       return [];
@@ -239,6 +250,7 @@ export class AIChangelogGenerator {
   public async generate(
     version: string,
     previousTag?: string,
+    filterScopes?: string[],
   ): Promise<string> {
     const currentTag = `${this.tagPrefix}${version}`;
 
@@ -259,7 +271,11 @@ export class AIChangelogGenerator {
       `Generating changelog from ${previousTag || 'initial commit'} to ${currentTag}`,
     );
 
-    const commits = await this.getCommitsBetweenTags(previousTag, currentTag);
+    const commits = await this.getCommitsBetweenTags(
+      previousTag,
+      currentTag,
+      filterScopes,
+    );
     const changelogData = await this.generateChangelogWithAI(
       commits,
       version,
