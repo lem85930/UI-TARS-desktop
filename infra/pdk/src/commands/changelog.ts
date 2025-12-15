@@ -9,6 +9,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { execa } from 'execa';
 import { resolveWorkspaceConfig } from '../utils/workspace';
 import { gitCommit, gitPush } from '../utils/git';
 import { logger } from '../utils/logger';
@@ -82,14 +83,26 @@ export async function changelog(options: ChangelogOptions = {}): Promise<void> {
   const changelogPath = join(cwd, 'CHANGELOG.md');
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
-  // Construct tag name
-  const tagName = `${tagPrefix}${version}`;
+  // Construct tag name - try to find actual git tag first
+  let tagName = `${tagPrefix}${version}`;
+  
+  // Try to find the actual git tag that matches this version
+  try {
+    const { stdout } = await execa('git', ['tag', '--list', `${tagPrefix}${version}`], { cwd });
+    const matchingTags = stdout.trim().split('\n').filter(Boolean);
+    if (matchingTags.length > 0) {
+      // Use the actual tag that exists
+      tagName = matchingTags[0];
+    }
+  } catch {
+    // Fall back to constructed tag name
+  }
 
   // Resolve repo info
   const repoInfo = await getRepositoryInfo(cwd);
 
-  // Get previous tag (non-canary)
-  const previousTag = await getPreviousTag(tagName, cwd);
+  // Get previous tag (non-canary) with tagPrefix filter
+  const previousTag = await getPreviousTag(tagName, cwd, tagPrefix);
 
   logger.info(
     `📝 Generating unified changelog from ${previousTag || 'repository start'} to ${tagName}`,
@@ -123,8 +136,7 @@ export async function changelog(options: ChangelogOptions = {}): Promise<void> {
   }
 
   // Compose final changelog entry with version header
-  const versionHeader = tagName.startsWith('v') ? tagName : `v${tagName}`;
-  const entry = `## ${versionHeader} (${today})\n\n${releaseNotes}\n`;
+  const entry = `## ${tagName} (${today})\n\n${releaseNotes}\n`;
 
   if (dryRun) {
     logger.info(`[dry-run] Would update CHANGELOG.md with:`);

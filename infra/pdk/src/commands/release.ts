@@ -8,6 +8,7 @@
  * Manages version updates and package publishing
  */
 
+import { ok } from 'assert';
 import { join } from 'path';
 import { readJsonSync, writeJsonSync } from 'fs-extra';
 import { execa } from 'execa';
@@ -57,6 +58,9 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
     useAi = false,
     createGithubRelease = false,
     autoCreateReleaseBranch = false,
+    releaseVersion,
+    releaseTag,
+    skipConfirm = false,
   } = options;
 
   if (dryRun) {
@@ -68,6 +72,10 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
     ? new ReleaseBranchManager()
     : null;
 
+  // Initialize version and tag variables for error handling
+  let version: string;
+  let tag: string;
+
   try {
     // Get workspace configuration
     const config = resolveWorkspaceConfig(cwd);
@@ -76,8 +84,6 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
     logger.info(`Current version: ${currentVersion}`);
 
     // Get version and tag based on canary mode
-    let version: string;
-    let tag: string;
 
     if (canary) {
       // Skip prompts for canary release
@@ -85,18 +91,45 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
       version = canaryResult.version;
       tag = canaryResult.tag;
       logger.info(`Canary release: ${version} (${tag})`);
+    } else if (releaseVersion && releaseTag) {
+      // Use directly specified version and tag
+      version = releaseVersion;
+      tag = releaseTag;
+
+      // Validate version
+      if (!require('semver').valid(version)) {
+        throw new Error(`Invalid version: ${version}`);
+      }
+
+      logger.info(`Direct release: ${version} (${tag})`);
+
+      // Confirm release unless skip-confirm is enabled
+      if (!skipConfirm) {
+        const confirmed = await confirmRelease(version, tag);
+        if (!confirmed) {
+          return;
+        }
+      }
     } else {
       // Prompt for version and tag
-      const result = await selectVersionAndTag(currentVersion);
+      const result = await selectVersionAndTag(currentVersion, {
+        version: releaseVersion,
+        tag: releaseTag,
+      });
       version = result.version;
       tag = result.tag;
 
-      // Confirm release
-      const confirmed = await confirmRelease(version, tag);
-      if (!confirmed) {
-        return;
+      // Confirm release unless skip-confirm is enabled
+      if (!skipConfirm) {
+        const confirmed = await confirmRelease(version, tag);
+        if (!confirmed) {
+          return;
+        }
       }
     }
+
+    ok(version, 'Version must be defined');
+    ok(tag, 'Tag must be defined');
 
     // Handle auto-create release branch
     if (branchManager) {
@@ -119,13 +152,15 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
       return;
     }
 
-    // Confirm packages to publish
-    const packagesConfirmed = await confirmPackagesToPublish(
-      packagesToPublish,
-      canary,
-    );
-    if (!packagesConfirmed) {
-      return;
+    // Confirm packages to publish unless skip-confirm is enabled
+    if (!skipConfirm) {
+      const packagesConfirmed = await confirmPackagesToPublish(
+        packagesToPublish,
+        canary,
+      );
+      if (!packagesConfirmed) {
+        return;
+      }
     }
 
     // Update all package versions FIRST (before build)
@@ -176,7 +211,7 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
 
     // Generate changelog first (but don't commit yet)
     let changelogGenerated = false;
-    if (generateChangelog) {
+    if (generateChangelog && version) {
       await handleChangelogGeneration(version, cwd, dryRun, options, false); // Don't commit
       changelogGenerated = true;
     }
@@ -191,11 +226,12 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
       pushTag,
       canary,
       changelogGenerated,
+      skipConfirm,
     );
 
     // Create GitHub release if requested
-    if (createGithubRelease) {
-      await handleGitHubRelease(version, tag, cwd, dryRun);
+    if (createGithubRelease && version && tag) {
+      await handleGitHubRelease(version, tag, cwd, dryRun, tagPrefix);
     }
 
     // Switch back to original branch if auto-create release branch was used
@@ -203,9 +239,9 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
       await branchManager.switchBackToOriginalBranch(cwd, dryRun);
     }
 
-    logger.success(`Release ${version} completed successfully!`);
+    logger.success(`Release ${version || 'unknown'} completed successfully!`);
   } catch (err) {
-    await handleReleaseError(err, branchManager, cwd, dryRun);
+    await handleReleaseError(err, branchManager, cwd, dryRun, version, tag, skipConfirm);
     throw err;
   }
 }
@@ -222,6 +258,7 @@ async function handleGitOperations(
   pushTag: boolean,
   canary: boolean,
   changelogGenerated = false,
+  skipConfirm = false,
 ): Promise<void> {
   const tagName = `${tagPrefix}${version}`;
 
@@ -257,7 +294,7 @@ async function handleGitOperations(
     logger.success(`Created git tag: ${tagName}`);
 
     // Handle tag pushing
-    await handleTagPush(tagName, cwd, pushTag, canary);
+    await handleTagPush(tagName, cwd, pushTag, canary, skipConfirm);
   } catch (err) {
     logger.error(`Failed to create git tag: ${(err as Error).message}`);
   }
@@ -271,9 +308,13 @@ async function handleTagPush(
   cwd: string,
   pushTag: boolean,
   canary: boolean,
+  skipConfirm = false,
 ): Promise<void> {
   const shouldPush =
-    pushTag || (canary ? true : await confirmTagPush(tagName, canary));
+    pushTag ||
+    canary ||
+    skipConfirm ||
+    await confirmTagPush(tagName, canary);
 
   if (!shouldPush) {
     return;
@@ -345,6 +386,7 @@ async function handleGitHubRelease(
   tagName: string,
   cwd: string,
   dryRun: boolean,
+  tagPrefix?: string,
 ): Promise<void> {
   try {
     await createGitHubRelease({
@@ -352,6 +394,7 @@ async function handleGitHubRelease(
       tagName,
       cwd,
       dryRun,
+      tagPrefix,
     });
   } catch (error) {
     logger.error(
@@ -370,6 +413,9 @@ async function handleReleaseError(
   branchManager: ReleaseBranchManager | null,
   cwd: string,
   dryRun: boolean,
+  version: string,
+  tag: string,
+  skipConfirm: boolean,
 ): Promise<void> {
   logger.error(`Release failed: ${(err as Error).message}`);
 
@@ -378,13 +424,9 @@ async function handleReleaseError(
     await branchManager.handleBranchError(cwd, dryRun);
   }
 
-  // Try to patch the failed release
-  if (!dryRun) {
+  // Try to patch the failed release only if we have version and tag
+  if (!dryRun && !skipConfirm && version && tag) {
     try {
-      const { version, tag } = await selectVersionAndTag(
-        resolveWorkspaceConfig(cwd).rootPackageJson.version || '0.0.0',
-      );
-
       await patch({
         cwd,
         version,

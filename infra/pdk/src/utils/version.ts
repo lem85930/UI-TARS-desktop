@@ -44,25 +44,58 @@ export async function generateCanaryVersion(
  */
 export async function selectVersionAndTag(
   currentVersion: string,
+  options?: {
+    version?: string;
+    tag?: string;
+  },
 ): Promise<{ version: string; tag: string }> {
+  // If version and tag are provided directly, skip prompts
+  if (options?.version && options?.tag) {
+    // Validate provided version
+    if (!semver.valid(options.version)) {
+      throw new Error(`Invalid version: ${options.version}`);
+    }
+    return {
+      version: options.version,
+      tag: options.tag,
+    };
+  }
+
   const customItem = { name: 'Custom', value: 'custom' };
-  const bumps = ['patch', 'minor', 'major', 'prerelease', 'premajor'] as const;
+  const bumps = ['patch', 'minor', 'major'] as const;
 
-  const versions = bumps.reduce<Record<string, string>>((acc, bump) => {
-    acc[bump] = semver.inc(currentVersion, bump) || '';
-    return acc;
-  }, {});
+  const versions = {
+    patch: semver.inc(currentVersion, 'patch') || '',
+    minor: semver.inc(currentVersion, 'minor') || '',
+    major: semver.inc(currentVersion, 'major') || '',
+  };
 
-  const bumpChoices = bumps.map((bump) => ({
-    name: `${bump} (${versions[bump]})`,
-    value: bump,
-  }));
+  // Generate improved prerelease options
+  const prereleaseVersions = [
+    { name: `beta (${semver.inc(currentVersion, 'prerelease', 'beta')})`, value: 'beta' },
+    { name: `alpha (${semver.inc(currentVersion, 'prerelease', 'alpha')})`, value: 'alpha' },
+    { name: `rc (${semver.inc(currentVersion, 'prerelease', 'rc')})`, value: 'rc' },
+  ];
+
+  const bumpChoices = [
+    { name: `patch (${versions.patch})`, value: 'patch' },
+    { name: `minor (${versions.minor})`, value: 'minor' },
+    { name: `major (${versions.major})`, value: 'major' },
+  ];
 
   const getNpmTags = (version: string) => {
     if (semver.prerelease(version)) {
-      return ['next', 'latest', 'beta', customItem];
+      const prerelease = semver.prerelease(version);
+      const prereleaseType = prerelease?.[0] as string;
+      
+      // Return appropriate tags based on prerelease type
+      if (prereleaseType === 'beta') return ['beta', 'latest', customItem];
+      if (prereleaseType === 'alpha') return ['alpha', 'latest', customItem];
+      if (prereleaseType === 'rc') return ['rc', 'latest', customItem];
+      
+      return ['latest', 'beta', 'alpha', 'rc', customItem];
     }
-    return ['latest', 'next', 'beta', customItem];
+    return ['latest', 'beta', 'alpha', 'rc', customItem];
   };
 
   const { bump, customVersion, npmTag, customNpmTag } = await inquirer.prompt([
@@ -70,7 +103,7 @@ export async function selectVersionAndTag(
       name: 'bump',
       message: 'Select release type:',
       type: 'list',
-      choices: [...bumpChoices, customItem],
+      choices: [...bumpChoices, ...prereleaseVersions, customItem],
     },
     {
       name: 'customVersion',
@@ -82,10 +115,14 @@ export async function selectVersionAndTag(
     },
     {
       name: 'npmTag',
-      message: 'Input npm tag:',
+      message: 'Select npm tag:',
       type: 'list',
-      choices: (answers) =>
-        getNpmTags(answers.customVersion || versions[answers.bump]),
+      choices: (answers) => {
+        const version = (answers.bump === 'beta' || answers.bump === 'alpha' || answers.bump === 'rc')
+          ? semver.inc(currentVersion, 'prerelease', answers.bump)
+          : answers.customVersion || versions[answers.bump];
+        return getNpmTags(version);
+      },
     },
     {
       name: 'customNpmTag',
@@ -95,7 +132,13 @@ export async function selectVersionAndTag(
     },
   ]);
 
-  const version = customVersion || versions[bump];
+  let version: string;
+  if (bump === 'beta' || bump === 'alpha' || bump === 'rc') {
+    version = semver.inc(currentVersion, 'prerelease', bump) || '';
+  } else {
+    version = customVersion || versions[bump];
+  }
+  
   const tag = customNpmTag || npmTag;
 
   return { version, tag };
@@ -118,4 +161,23 @@ export async function updatePackageVersion(
   const packageJson = readJsonSync(packagePath);
   packageJson.version = version;
   writeJsonSync(packagePath, packageJson, { spaces: 2 });
+}
+
+/**
+ * Get next version options for current version
+ */
+export function getNextVersionOptions(currentVersion: string): Record<string, string> {
+  const versions = {
+    patch: semver.inc(currentVersion, 'patch') || '',
+    minor: semver.inc(currentVersion, 'minor') || '',
+    major: semver.inc(currentVersion, 'major') || '',
+    prerelease: semver.inc(currentVersion, 'prerelease') || '',
+  };
+
+  // Add prerelease variants
+  versions['prerelease-beta'] = semver.inc(currentVersion, 'prerelease', 'beta') || '';
+  versions['prerelease-alpha'] = semver.inc(currentVersion, 'prerelease', 'alpha') || '';
+  versions['prerelease-rc'] = semver.inc(currentVersion, 'prerelease', 'rc') || '';
+
+  return versions;
 }

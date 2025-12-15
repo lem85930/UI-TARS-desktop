@@ -224,6 +224,18 @@ export interface ReleaseSpecificOptions {
    * Automatically create release branch before release (default: false)
    */
   autoCreateReleaseBranch?: boolean;
+  /**
+   * Directly specify release version (skips interactive selection)
+   */
+  releaseVersion?: string;
+  /**
+   * Directly specify release tag (skips interactive selection)
+   */
+  releaseTag?: string;
+  /**
+   * Skip confirmation prompts during release
+   */
+  skipConfirm?: boolean;
 }
 
 /**
