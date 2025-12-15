@@ -1,5 +1,17 @@
 # @agent-infra/mcp-server-browser
 
+## 1.2.29
+
+### Patch Changes
+
+- Update browser server package
+
+## 1.2.28
+
+### Patch Changes
+
+- fix: bugs
+
 ## 1.2.26
 
 ### Patch Changes
